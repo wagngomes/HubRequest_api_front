@@ -1,0 +1,240 @@
+// Prisma schema — Hub Request Plan API
+// Provider: PostgreSQL (Supabase)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────── Enums ────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Setor {
+  PLANEJAMENTO
+  COMERCIAL
+  OPERACOES
+  OUTRO
+}
+
+enum Sn {
+  S
+  N
+}
+
+enum StatusSolicitacao {
+  PENDENTE
+  PROCESSADA
+}
+
+enum StatusItem {
+  PENDENTE
+  PROCESSADA
+  NAO_PROCESSADA
+}
+
+enum Sistema {
+  MONEY
+  SALESFORCE
+  MONEY_SALESFORCE
+}
+
+enum Acao {
+  HABILITAR
+  DESABILITAR
+}
+
+enum Retorno {
+  APROVADA
+  REPROVADA
+}
+
+// ──────────────────────────── Auth ────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  nome         String   @default("")
+  email        String   @unique
+  passwordHash String?
+  role         Role     @default(USER)
+  setor        Setor    @default(OUTRO)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  solicitacoesTransferencia SolicitacaoTransferencia[]
+  solicitacoesLiberacao     SolicitacaoLiberacao[]
+}
+
+// ──────────────────────────── Marca / Supridor ────────────────────────────
+
+model Marca {
+  id            String   @id @default(cuid())
+  marca         String   @unique
+  supridor      String   @default("-")
+  emailSupridor String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  produtos Product[]
+}
+
+// ──────────────────────────── Produto ────────────────────────────
+
+model Product {
+  codigo      String @id @unique
+  descricao   String
+  marca       String
+  refrigerado Sn     @default(N)
+  controlado  Sn     @default(N)
+  cmv         Float  @default(0)
+  tributacao  String @default("-")
+  multiplo    Int    @default(1)
+
+  marcaObj       Marca           @relation(fields: [marca], references: [marca])
+  transferencias Transferencia[]
+  liberacoes     Liberacao[]
+}
+
+// ──────────────────────────── Restrição de Transferência ─────────────────
+
+/// Combinações tributacao+origem+destino que NÃO são permitidas para transferência.
+model RestricaoTribTransf {
+  id         String   @id @default(cuid())
+  tributacao String
+  origem     String
+  destino    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tributacao, origem, destino])
+}
+
+// ──────────────────────────── SLA entre CDs ────────────────────────────
+
+model Sla {
+  id           String   @id @default(cuid())
+  origem       String
+  siglaOrigem  String
+  destino      String
+  siglaDestino String
+  sla          Int
+  liberado     Sn       @default(S)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([origem, destino])
+}
+
+// ──────────────────────────── Solicitação de Transferência ────────────────────────────
+
+model SolicitacaoTransferencia {
+  id        String            @id
+  status    StatusSolicitacao @default(PENDENTE)
+  obs       String?
+  userId    String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id])
+  itens Transferencia[]
+}
+
+model Transferencia {
+  id                  String     @id @default(cuid())
+  solicitacaoId       String
+  codigo              String
+  descricao           String
+  controlado          Sn         @default(N)
+  refrigerado         Sn         @default(N)
+  origem              String
+  destino             String
+  quantidade          Int
+  status              StatusItem @default(PENDENTE)
+  dataPrevisaoChegada String?
+  notaFiscal          String?
+  supridorSnapshot    String?
+  obs                 String     @default("-")
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  solicitacao SolicitacaoTransferencia @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  produto     Product                  @relation(fields: [codigo], references: [codigo])
+}
+
+// ──────────────────────────── Solicitação de Liberação ────────────────────────────
+
+model SolicitacaoLiberacao {
+  id                  String            @id
+  status              StatusSolicitacao @default(PENDENTE)
+  obs                 String?
+  solicitante         String
+  email               String
+  grupo               String
+  contrato            String
+  representante       String
+  moneyOuSalesforce   Sistema           @default(MONEY)
+  acao                Acao              @default(HABILITAR)
+  retornoPlanejamento Retorno?
+  userId              String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id])
+  itens Liberacao[]
+}
+
+model Liberacao {
+  id              String     @id @default(cuid())
+  solicitacaoId   String
+  codigo          String
+  descricao       String
+  contribuinte    Sn         @default(N)
+  clienteUF       String
+  centro          String
+  cnpjCod         String
+  grupo2          String
+  quantidade      Int
+  valor           Float
+  linkPedidoCompl String
+  status          StatusItem @default(PENDENTE)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  solicitacao SolicitacaoLiberacao @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  produto     Product              @relation(fields: [codigo], references: [codigo])
+}
+
+// ──────────────────────────── Centro de Distribuição ────────────────────────────
+
+model CentroDistribuicao {
+  id        String   @id @default(cuid())
+  codigo    String   @unique
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ──────────────────────────── Constantes de negócio ────────────────────────────
+
+model Constantes {
+  id                  String   @id @default("singleton")
+  minimoTransferencia Float    @default(0)
+  minimoPitagoras     Float    @default(0)
+  updatedAt           DateTime @updatedAt
+}
+
+// ──────────────────────────── Configurações do sistema ────────────────────────────
+
+model AppConfig {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @updatedAt
+}
