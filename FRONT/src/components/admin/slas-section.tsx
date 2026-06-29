@@ -238,8 +238,10 @@ function SlasCsvUploadModal({ open, onOpenChange, onSuccess }: SlasCsvUploadModa
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-sm text-gray-500">
-            Selecione um arquivo CSV com separador <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">|</code> e as colunas:{" "}
-            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">origem | destino | sla | liberada</code>.
+            Selecione um arquivo CSV (separador detectado automaticamente) com as colunas:{" "}
+            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">origem, destino, sla, liberado</code>.
+            As colunas <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">siglaorigem</code> e{" "}
+            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">sigladestino</code> são opcionais (padrão: código do CD).
             Registros existentes serão atualizados automaticamente.
           </p>
 

@@ -7,6 +7,7 @@ import { transferenciasRoutes } from './transferencias.js'
 import { liberacoesRoutes } from './liberacoes.js'
 import { dadosMestresRoutes } from './dados-mestres.js'
 import { dashboardRoutes } from './dashboard.js'
+import { travasRoutes } from './travas.js'
 import { adminRoutes } from './admin/index.js'
 
 export async function registerRoutes(app: FastifyInstance) {
@@ -23,6 +24,7 @@ export async function registerRoutes(app: FastifyInstance) {
     await v1.register(liberacoesRoutes,      { prefix: '/liberacoes' })
     await v1.register(dadosMestresRoutes)
     await v1.register(dashboardRoutes,       { prefix: '/dashboard' })
+    await v1.register(travasRoutes,          { prefix: '/travas' })
     await v1.register(adminRoutes,           { prefix: '/admin' })
   }, { prefix: '/api/v1' })
 }

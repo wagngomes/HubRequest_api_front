@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Save, Mail, Plus, X, AlertCircle, CheckCircle2, Truck, FileText } from "lucide-react";
+import { Loader2, Save, Mail, Plus, X, AlertCircle, CheckCircle2, Truck, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { toast } from "@/hooks/use-toast";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type EmailKey = "notificationEmailsTransferencia" | "notificationEmailsLiberacao";
+type EmailKey = "notificationEmailsTransferencia" | "notificationEmailsLiberacao" | "travasEditores";
 
 interface EmailGroupEditorProps {
   title: string;
@@ -240,6 +240,14 @@ export function NotificacoesSection() {
         settingsKey="notificationEmailsLiberacao"
         accentColor="#2E9B7C"
         icon={FileText}
+      />
+
+      <EmailGroupEditor
+        title="Editores de Travas"
+        description="Estes e-mails poderão criar, editar e excluir travas/regras. Demais usuários só podem visualizar e enviar mensagens."
+        settingsKey="travasEditores"
+        accentColor="#7C3AED"
+        icon={Lock}
       />
     </div>
   );

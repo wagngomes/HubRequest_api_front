@@ -54,6 +54,26 @@ export const adminSlaSchema = z.object({
   liberado: z.enum(['S', 'N'], { required_error: 'Campo obrigatório' }),
 })
 
+export const travaSchema = z.object({
+  trava:               z.string().min(1, 'Campo obrigatório'),
+  area:                z.enum(['COMERCIAL', 'COMPRAS', 'PLANEJAMENTO', 'PRICING', 'FISCAL', 'OUTRAS']),
+  solicitacao:         z.string().default(''),
+  aprovadores:         z.array(z.string()).default([]),
+  status:              z.enum(['ATIVA', 'INATIVA']).default('ATIVA'),
+  nomeTrava:           z.string().default(''),
+  mensagemCustomizada: z.string().default(''),
+  motivoDetalhamento:  z.string().default(''),
+  dataSolicitacao:     z.string().default(''),
+  transOuVenda:        z.enum(['TRANSF', 'VENDA']).default('VENDA'),
+  salesOuMoney:        z.enum(['MONEY', 'SALESFORCE', 'MONEY_SALESFORCE']).default('MONEY_SALESFORCE'),
+  dataAtualizacao:     z.string().default(''),
+  motivoAtualizacao:   z.string().default(''),
+})
+
+export const travaMensagemSchema = z.object({
+  texto: z.string().min(1, 'Mensagem não pode ser vazia'),
+})
+
 export const adminConstantesSchema = z.object({
   minimoTransferencia: z.coerce.number({ invalid_type_error: 'Valor inválido' }).min(0, 'Não pode ser negativo'),
   minimoPitagoras: z.coerce.number({ invalid_type_error: 'Valor inválido' }).min(0, 'Não pode ser negativo'),
@@ -63,6 +83,7 @@ export const adminSettingsSchema = z.object({
   notificationEmails: z.string().optional(),
   notificationEmailsTransferencia: z.string().optional(),
   notificationEmailsLiberacao: z.string().optional(),
+  travasEditores: z.string().optional(),
 })
 
 export type AdminUserCreateInput = z.infer<typeof adminUserCreateSchema>
@@ -72,5 +93,7 @@ export type AdminMarcaInput = z.infer<typeof adminMarcaSchema>
 export type AdminRestricaoInput = z.infer<typeof adminRestricaoSchema>
 export type AdminCentroInput = z.infer<typeof adminCentroSchema>
 export type AdminSlaInput = z.infer<typeof adminSlaSchema>
+export type TravaInput = z.infer<typeof travaSchema>
+export type TravaMensagemInput = z.infer<typeof travaMensagemSchema>
 export type AdminConstantesInput = z.infer<typeof adminConstantesSchema>
 export type AdminSettingsInput = z.infer<typeof adminSettingsSchema>

@@ -6,6 +6,7 @@ import {
   createCentroService,
   updateCentroService,
   deleteCentroService,
+  uploadCentrosCsvService,
 } from '../../services/admin/centros.js'
 
 // ---------- Input schemas ----------
@@ -49,4 +50,19 @@ export async function deleteCentro(request: FastifyRequest, reply: FastifyReply)
   if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
   await deleteCentroService(parsed.data.id)
   return reply.send({ message: 'Centro excluído com sucesso' })
+}
+
+export async function uploadCentros(request: FastifyRequest, reply: FastifyReply) {
+  const file = await request.file()
+  if (!file) return reply.status(400).send({ error: 'Arquivo não enviado' })
+  if (!file.filename.endsWith('.csv')) {
+    return reply.status(400).send({ error: 'Formato inválido. Envie um .csv' })
+  }
+
+  const chunks: Buffer[] = []
+  for await (const chunk of file.file) chunks.push(chunk)
+  const text = Buffer.concat(chunks).toString('utf-8')
+
+  const result = await uploadCentrosCsvService(text)
+  return reply.send(result)
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Plus, Pencil, Trash2, Loader2, Search, X, MapPin,
+  Plus, Pencil, Trash2, Loader2, Search, X, MapPin, Upload, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,16 +109,116 @@ function CentroModal({ open, onOpenChange, centro, onSuccess }: CentroModalProps
   );
 }
 
+/* ── Modal upload CSV ─────────────────────────────────────────────────── */
+interface CentrosCsvUploadModalProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
+}
+
+function CentrosCsvUploadModal({ open, onOpenChange, onSuccess }: CentrosCsvUploadModalProps) {
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<{ inserted: number; updated: number } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) setResult(null);
+  }, [open]);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const json = await apiFetch<{ inserted: number; updated: number }>("/admin/centros/upload", { method: "POST", body: formData });
+      setResult({ inserted: json.inserted ?? 0, updated: json.updated ?? 0 });
+      onSuccess();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erro", description: err instanceof Error ? err.message : "" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md bg-white">
+        <DialogHeader className="pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 rounded-full" style={{ backgroundColor: "#16455C" }} />
+            <DialogTitle className="text-base font-semibold" style={{ color: "#16455C" }}>
+              Upload de Centros (CSV)
+            </DialogTitle>
+          </div>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <p className="text-sm text-gray-500">
+            Selecione um arquivo CSV (separador detectado automaticamente) com as colunas:{" "}
+            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">codigo, label</code>.
+            A coluna <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">nome</code> também é aceita como alias de{" "}
+            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">label</code>.
+            Registros existentes serão atualizados automaticamente.
+          </p>
+
+          {result ? (
+            <div className="flex flex-col items-center py-6 gap-3 text-center">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "#EBF5F9" }}>
+                <CheckCircle2 size={24} style={{ color: "#16455C" }} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800">Upload concluído!</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {result.inserted} inserido(s) · {result.updated} atualizado(s)
+                </p>
+              </div>
+              <Button onClick={() => onOpenChange(false)} style={{ backgroundColor: "#16455C", color: "white" }}>
+                Fechar
+              </Button>
+            </div>
+          ) : (
+            <>
+              <label
+                className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors hover:border-[#16455C] hover:bg-[#EBF5F9]"
+                style={{ borderColor: "#d1d5db" }}
+              >
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} disabled={uploading} />
+                {uploading ? (
+                  <Loader2 size={28} className="animate-spin mb-2" style={{ color: "#16455C" }} />
+                ) : (
+                  <Upload size={28} className="mb-2 text-gray-300" />
+                )}
+                <p className="text-sm text-gray-400">
+                  {uploading ? "Processando..." : "Clique para selecionar o arquivo CSV"}
+                </p>
+              </label>
+              <div className="flex justify-end">
+                <Button type="button" variant="outline" style={{ borderColor: "#d1d5db", color: "#374151" }} onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Seção principal ──────────────────────────────────────────────────── */
 export function CentrosSection() {
   const [centros, setCentros]       = useState<AdminCentro[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [editTarget, setEditTarget] = useState<AdminCentro | null>(null);
+  const [modalOpen, setModalOpen]       = useState(false);
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [editTarget, setEditTarget]     = useState<AdminCentro | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminCentro | null>(null);
-  const [deleting, setDeleting]     = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting]         = useState(false);
+  const [deleteOpen, setDeleteOpen]     = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,12 +271,21 @@ export function CentrosSection() {
             </button>
           )}
         </div>
-        <Button
-          onClick={() => { setEditTarget(null); setModalOpen(true); }}
-          style={{ backgroundColor: "#16455C", color: "white" }}
-        >
-          <Plus size={15} /> Novo centro
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setCsvModalOpen(true)}
+            style={{ borderColor: "#16455C", color: "#16455C" }}
+          >
+            <Upload size={15} /> Upload CSV
+          </Button>
+          <Button
+            onClick={() => { setEditTarget(null); setModalOpen(true); }}
+            style={{ backgroundColor: "#16455C", color: "white" }}
+          >
+            <Plus size={15} /> Novo centro
+          </Button>
+        </div>
       </div>
 
       {/* Tabela */}
@@ -240,6 +349,13 @@ export function CentrosSection() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         centro={editTarget}
+        onSuccess={load}
+      />
+
+      {/* Modal upload CSV */}
+      <CentrosCsvUploadModal
+        open={csvModalOpen}
+        onOpenChange={setCsvModalOpen}
         onSuccess={load}
       />
 

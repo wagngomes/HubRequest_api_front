@@ -7,6 +7,7 @@ export async function adminCentrosRoutes(app: FastifyInstance) {
 
   app.get('/', { preHandler: adminGuard }, ctrl.listCentros)
   app.post('/', { preHandler: adminGuard }, ctrl.createCentro)
+  app.post('/upload', { preHandler: adminGuard }, ctrl.uploadCentros)
   app.patch('/:id', { preHandler: adminGuard }, ctrl.updateCentro)
   app.delete('/:id', { preHandler: adminGuard }, ctrl.deleteCentro)
 }

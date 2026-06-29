@@ -19,8 +19,9 @@ export async function getDashboardService(input: DashboardInput) {
     },
   })
 
-  const transPendentes = transItems.filter((i) => i.status === 'PENDENTE').length
-  const transProcessadas = transItems.filter((i) => i.status === 'PROCESSADA').length
+  const transPendentes     = transItems.filter((i) => i.status === 'PENDENTE').length
+  const transProcessadas   = transItems.filter((i) => i.status === 'PROCESSADA').length
+  const transNaoProcessadas = transItems.filter((i) => i.status === 'NAO_PROCESSADA').length
 
   const temposTransf = transItems
     .filter((i) => i.status === 'PROCESSADA')
@@ -30,12 +31,13 @@ export async function getDashboardService(input: DashboardInput) {
   const tempoMedioTransf =
     temposTransf.length > 0 ? temposTransf.reduce((a, b) => a + b, 0) / temposTransf.length : null
 
-  const rotaMap = new Map<string, { origem: string; destino: string; pendentes: number; total: number }>()
+  const rotaMap = new Map<string, { origem: string; destino: string; pendentes: number; processadas: number; total: number }>()
   for (const item of transItems) {
     const key = `${item.origem}|${item.destino}`
-    const r = rotaMap.get(key) ?? { origem: item.origem, destino: item.destino, total: 0, pendentes: 0 }
+    const r = rotaMap.get(key) ?? { origem: item.origem, destino: item.destino, total: 0, pendentes: 0, processadas: 0 }
     r.total++
-    if (item.status === 'PENDENTE') r.pendentes++
+    if (item.status === 'PENDENTE')   r.pendentes++
+    if (item.status === 'PROCESSADA') r.processadas++
     rotaMap.set(key, r)
   }
   const porRota = Array.from(rotaMap.values()).sort((a, b) => b.total - a.total).slice(0, 12)
@@ -84,6 +86,7 @@ export async function getDashboardService(input: DashboardInput) {
     transferencias: {
       pendentes: transPendentes,
       processadas: transProcessadas,
+      naoProcessadas: transNaoProcessadas,
       total: transItems.length,
       tempoMedioHoras: tempoMedioTransf,
       porRota,

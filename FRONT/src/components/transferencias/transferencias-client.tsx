@@ -9,6 +9,7 @@ import { TransferenciasTable } from "./transferencias-table";
 import { TransferenciaModal } from "./transferencia-modal";
 import { useTransferencias } from "@/hooks/use-transferencias";
 import { useSlas } from "@/hooks/use-slas";
+import { apiFetchBlob } from "@/lib/api-client";
 
 interface TransferenciasClientProps {
   isPlanejamento: boolean;
@@ -65,10 +66,7 @@ export function TransferenciasClient({ isPlanejamento }: TransferenciasClientPro
       if (statusFilter !== "all") query.set("status", statusFilter);
       if (supridorFilter)       query.set("supridor", supridorFilter);
 
-      const res = await fetch(`/api/transferencias/export?${query}`);
-      if (!res.ok) throw new Error("Falha ao gerar arquivo");
-
-      const blob = await res.blob();
+      const blob = await apiFetchBlob(`/transferencias/export?${query}`);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;

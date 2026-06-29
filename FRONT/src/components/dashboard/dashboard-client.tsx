@@ -9,6 +9,7 @@ import { Loader2, Clock, ArrowLeftRight, FileText, TrendingUp, BarChart2, Refres
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { formatBusinessHours } from "@/lib/business-hours";
+import { apiFetch } from "@/lib/api-client";
 
 // ── Paleta ──────────────────────────────────────────────────────────────────
 const C = {
@@ -25,9 +26,9 @@ const C = {
 interface DashboardData {
   periodo: { mes: number; ano: number };
   transferencias: {
-    pendentes: number; processadas: number; total: number;
+    pendentes: number; processadas: number; naoProcessadas: number; total: number;
     tempoMedioHoras: number | null;
-    porRota: { origem: string; destino: string; pendentes: number; total: number }[];
+    porRota: { origem: string; destino: string; pendentes: number; processadas: number; total: number }[];
   };
   liberacoes: {
     pendentes: number; processadas: number; total: number;
@@ -131,8 +132,10 @@ export function DashboardClient({ isPlanejamento }: { isPlanejamento: boolean })
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?mes=${mes}&ano=${ano}`);
-      if (res.ok) setData(await res.json());
+      const json = await apiFetch<DashboardData>(`/dashboard?mes=${mes}&ano=${ano}`);
+      setData(json);
+    } catch {
+      // mantém dados anteriores em caso de erro
     } finally {
       setLoading(false);
     }
@@ -153,10 +156,10 @@ export function DashboardClient({ isPlanejamento }: { isPlanejamento: boolean })
 
   // ── Rota label ──────────────────────────────────────────────────────────
   const rotaData = (data?.transferencias.porRota ?? []).map((r) => ({
-    rota:       `${r.origem}→${r.destino}`,
-    Pendentes:  r.pendentes,
-    Processadas: r.total - r.pendentes,
-    total:      r.total,
+    rota:        `${r.origem}→${r.destino}`,
+    Pendentes:   r.pendentes,
+    Processadas: r.processadas,
+    total:       r.total,
   }));
 
   const supData = (data?.porSupridor ?? []).map((s) => ({

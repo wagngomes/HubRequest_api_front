@@ -53,3 +53,23 @@ export async function apiFetch<T = unknown>(
 
   return res.json() as Promise<T>
 }
+
+export async function apiFetchBlob(path: string, options: FetchOptions = {}): Promise<Blob> {
+  const { skipAuth, ...init } = options
+  const headers = new Headers(init.headers)
+  if (!skipAuth) {
+    const token = getToken()
+    if (token) headers.set("Authorization", `Bearer ${token}`)
+  }
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers })
+  if (res.status === 401) {
+    removeToken()
+    window.location.href = "/login"
+    throw new Error("Sessão expirada")
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Erro desconhecido" }))
+    throw new Error((err as { error?: string }).error ?? "Erro na requisição")
+  }
+  return res.blob()
+}

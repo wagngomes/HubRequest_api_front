@@ -11,6 +11,7 @@ import {
   ChevronRight,
   X,
   ShieldCheck,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./sidebar-provider";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/home", label: "Início", icon: Home, adminOnly: false },
   { href: "/transferencias", label: "Transferências", icon: ArrowLeftRight, adminOnly: false },
   { href: "/liberacoes", label: "Liberações", icon: FileText, adminOnly: false },
+  { href: "/travas", label: "Travas | Regras", icon: Lock, adminOnly: false },
   { href: "/admin", label: "Administração", icon: ShieldCheck, adminOnly: true },
 ];
 

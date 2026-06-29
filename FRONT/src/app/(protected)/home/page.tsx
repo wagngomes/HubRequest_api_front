@@ -4,7 +4,7 @@ import { getServerSession } from "@/lib/auth-server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeftRight, FileText, ArrowRight, BarChart2 } from "lucide-react";
+import { ArrowLeftRight, FileText, ArrowRight, BarChart2, Lock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -176,6 +176,46 @@ export default async function HomePage() {
               <Button className="w-full group-hover:shadow-md transition-shadow"
                       style={{ backgroundColor: "#16455C", color: "white" }}>
                 Ver Dashboard
+                <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+        {/* Card Travas | Regras */}
+        <Card className="group hover:shadow-lg transition-all duration-300 overflow-hidden border-0 shadow-sm flex flex-col">
+          <div className="relative h-40 overflow-hidden"
+               style={{ background: "linear-gradient(135deg, #4C1D95 0%, #7C3AED 100%)" }}>
+            <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 400 200" fill="none">
+              <circle cx="350" cy="50" r="80" fill="white" />
+              <circle cx="50" cy="180" r="60" fill="white" />
+              <rect x="100" y="60" width="200" height="4" rx="2" fill="white" />
+              <rect x="100" y="80" width="140" height="4" rx="2" fill="white" />
+              <rect x="100" y="100" width="170" height="4" rx="2" fill="white" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm">
+                <Lock size={44} color="white" />
+              </div>
+            </div>
+            <Badge className="absolute top-3 right-3 text-xs border-0"
+                   style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "white" }}>
+              <Lock size={10} className="mr-1" /> Planejamento
+            </Badge>
+          </div>
+
+          <CardHeader className="pb-2 flex-1">
+            <CardTitle className="text-lg" style={{ color: "#16455C" }}>
+              Travas | Regras
+            </CardTitle>
+            <CardDescription>
+              Consulte as travas e regras do planejamento por área. Envie mensagens e acompanhe o histórico.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/travas">
+              <Button className="w-full group-hover:shadow-md transition-shadow"
+                      style={{ backgroundColor: "#7C3AED", color: "white" }}>
+                Acessar Travas
                 <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

@@ -5,6 +5,7 @@ const KNOWN_KEYS = [
   'notificationEmails',
   'notificationEmailsTransferencia',
   'notificationEmailsLiberacao',
+  'travasEditores',
 ] as const
 
 type KnownKey = (typeof KNOWN_KEYS)[number]

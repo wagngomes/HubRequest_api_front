@@ -1,0 +1,123 @@
+name: FRONT — CI
+
+on:
+  push:
+    paths:
+      - 'FRONT/**'
+  pull_request:
+    paths:
+      - 'FRONT/**'
+
+defaults:
+  run:
+    working-directory: FRONT
+
+jobs:
+  # ── JOB 1: Testes unitários — roda em todo push/PR ──────────────────────────
+  unit:
+    name: Testes Unitários (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: FRONT/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Rodar testes com coverage
+        run: npm run test:coverage
+
+      - name: Publicar relatório de coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: front-unit-coverage
+          path: FRONT/coverage/
+          retention-days: 7
+
+  # ── JOB 2: Testes E2E — apenas em push na main ou disparo manual ─────────────
+  #
+  #   Requer os seguintes secrets configurados no repositório GitHub:
+  #     NEXT_PUBLIC_API_URL   — URL da API em staging/produção
+  #     TEST_USER_EMAIL       — e-mail do usuário de teste
+  #     TEST_USER_PASSWORD    — senha do usuário de teste
+  #
+  e2e:
+    name: Testes E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: unit
+    if: |
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'workflow_dispatch'
+
+    env:
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: FRONT/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar browsers Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: Build Next.js (necessário para modo produção)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      - name: Rodar testes E2E
+        run: npm run e2e
+        env:
+          BASE_URL: 'http://localhost:3000'
+          # Playwright webServer inicia `npm run dev` — o build acima é para validar
+          # Troque para `npm start` em playwright.config.ts se preferir produção
+
+      - name: Publicar relatório Playwright
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: FRONT/playwright-report/
+          retention-days: 7
+
+  # ── JOB 3: Build — valida que o Next.js compila sem erros ───────────────────
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    needs: unit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: FRONT/package-lock.json
+
+      - run: npm ci
+
+      - name: Compilar Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001' }}

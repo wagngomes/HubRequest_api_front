@@ -11,6 +11,7 @@ interface SlaCSVRow {
   sigladestino?: string
   sla?: string
   liberado?: string
+  liberada?: string  // alias aceito pelo front
 }
 
 export async function listSlasAdminService() {
@@ -41,7 +42,7 @@ export async function uploadSlasCsvService(csvText: string) {
   const { data: rows, errors } = Papa.parse<SlaCSVRow>(csvText, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, ''),
+    transformHeader: (h: string) => h.trim().toLowerCase().replace(/\s+/g, ''),
   })
 
   if (errors.length > 0) throw new HttpError(422, 'Erro ao parsear CSV')
@@ -54,13 +55,19 @@ export async function uploadSlasCsvService(csvText: string) {
     const destino = String(row.destino ?? '').trim()
     if (!origem || !destino) continue
 
+    // sigla defaults to the CD code when column is absent
+    const siglaOrigem = row.siglaorigem?.trim() || origem
+    const siglaDestino = row.sigladestino?.trim() || destino
+    // accept both "liberado" and "liberada" as column names
+    const liberadoRaw = (row.liberado ?? row.liberada ?? 'S').trim().toUpperCase()
+
     const parsed = adminSlaSchema.safeParse({
       origem,
-      siglaOrigem: row.siglaorigem?.trim() ?? '',
+      siglaOrigem,
       destino,
-      siglaDestino: row.sigladestino?.trim() ?? '',
+      siglaDestino,
       sla: parseInt(row.sla ?? '0') || 0,
-      liberado: (row.liberado?.trim().toUpperCase() ?? 'S') === 'S' ? 'S' : 'N',
+      liberado: liberadoRaw === 'S' ? 'S' : 'N',
     })
 
     if (!parsed.success) continue
