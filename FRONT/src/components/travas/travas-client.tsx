@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, ShoppingBag, Package, BarChart2, Tag, FileText,
   MoreHorizontal, Upload, Plus, CheckCircle2, XCircle,
-  ExternalLink, Search, X, Lock,
+  ExternalLink, Search, X, Lock, Trash2, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -256,7 +256,7 @@ function CsvUploadModal({ open, onOpenChange, onSuccess }: CsvUploadModalProps) 
                 <p className="text-sm text-gray-400">{uploading ? "Processando..." : "Clique para selecionar o arquivo CSV"}</p>
               </label>
               <div className="flex justify-end">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                <Button variant="outline" className="text-gray-700 border-gray-300" onClick={() => onOpenChange(false)}>Cancelar</Button>
               </div>
             </>
           )}
@@ -341,8 +341,8 @@ function NovaTravaModal({ open, onOpenChange, onSuccess }: NovaTravaModalProps) 
     }
   }
 
-  const textareaClass = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED]";
-  const selectClass   = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] bg-white";
+  const textareaClass = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] bg-white";
+  const selectClass   = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] bg-white";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -365,7 +365,7 @@ function NovaTravaModal({ open, onOpenChange, onSuccess }: NovaTravaModalProps) 
                 placeholder="Ex: ZT001"
                 value={form.trava}
                 onChange={(e) => set("trava", e.target.value)}
-                className="text-sm"
+                className="text-sm text-gray-900"
               />
             </div>
             <div className="space-y-1.5">
@@ -434,7 +434,7 @@ function NovaTravaModal({ open, onOpenChange, onSuccess }: NovaTravaModalProps) 
                 placeholder="Nº ou descrição"
                 value={form.solicitacao}
                 onChange={(e) => set("solicitacao", e.target.value)}
-                className="text-sm"
+                className="text-sm text-gray-900"
               />
             </div>
             <div className="space-y-1.5">
@@ -443,7 +443,7 @@ function NovaTravaModal({ open, onOpenChange, onSuccess }: NovaTravaModalProps) 
                 placeholder="DD/MM/AAAA"
                 value={form.dataSolicitacao}
                 onChange={(e) => set("dataSolicitacao", e.target.value)}
-                className="text-sm"
+                className="text-sm text-gray-900"
               />
             </div>
           </div>
@@ -485,7 +485,7 @@ function NovaTravaModal({ open, onOpenChange, onSuccess }: NovaTravaModalProps) 
           </div>
 
           <div className="flex gap-2 justify-end pt-2 border-t border-gray-100">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+            <Button variant="outline" className="text-gray-700 border-gray-300" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
             <Button
               onClick={handleSave}
               disabled={saving || !form.trava.trim()}
@@ -512,6 +512,8 @@ export function TravasClient({ userEmail, userRole }: TravasClientProps) {
   const [selectedArea, setSelectedArea] = useState<AreaTrava | null>(null);
   const [csvOpen, setCsvOpen]           = useState(false);
   const [novaTravaOpen, setNovaTravaOpen] = useState(false);
+  const [clearOpen, setClearOpen]       = useState(false);
+  const [clearing, setClearing]         = useState(false);
   const [canEdit, setCanEdit]           = useState(false);
 
   const loadAreas = useCallback(async () => {
@@ -538,6 +540,20 @@ export function TravasClient({ userEmail, userRole }: TravasClientProps) {
 
   useEffect(() => { loadAreas(); checkPermission(); }, [loadAreas, checkPermission]);
 
+  async function handleClearAll() {
+    setClearing(true);
+    try {
+      const json = await apiFetch<{ message: string; deleted: number }>("/travas/clear", { method: "DELETE" });
+      toast({ title: "Tabela limpa", description: json.message });
+      setClearOpen(false);
+      loadAreas();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Erro", description: err instanceof Error ? err.message : "" });
+    } finally {
+      setClearing(false);
+    }
+  }
+
   const AREAS: AreaTrava[] = ["COMERCIAL", "COMPRAS", "PLANEJAMENTO", "PRICING", "FISCAL", "OUTRAS"];
 
   return (
@@ -550,6 +566,13 @@ export function TravasClient({ userEmail, userRole }: TravasClientProps) {
         </div>
         {canEdit && (
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setClearOpen(true)}
+              style={{ borderColor: "#DC2626", color: "#DC2626" }}
+            >
+              <Trash2 size={15} /> Limpar Tudo
+            </Button>
             <Button variant="outline" onClick={() => setCsvOpen(true)} style={{ borderColor: "#7C3AED", color: "#7C3AED" }}>
               <Upload size={15} /> Upload CSV
             </Button>
@@ -613,6 +636,48 @@ export function TravasClient({ userEmail, userRole }: TravasClientProps) {
 
       {/* Modal nova trava */}
       <NovaTravaModal open={novaTravaOpen} onOpenChange={setNovaTravaOpen} onSuccess={loadAreas} />
+
+      {/* Modal confirmação — limpar todas as travas */}
+      <Dialog open={clearOpen} onOpenChange={setClearOpen}>
+        <DialogContent className="max-w-sm bg-white">
+          <DialogHeader className="pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50">
+                <AlertTriangle size={16} className="text-red-600" />
+              </div>
+              <DialogTitle className="text-base font-semibold text-gray-800">
+                Excluir todas as travas?
+              </DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="py-3 space-y-3">
+            <p className="text-sm text-gray-500">
+              Essa ação irá remover <strong>permanentemente</strong> todas as travas e regras cadastradas. Não é possível desfazer.
+            </p>
+            <p className="text-xs text-red-600 font-medium">
+              {areas.reduce((acc, a) => acc + a.total, 0)} trava(s) serão excluídas.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <Button
+              variant="outline"
+              className="border-gray-300 text-gray-700"
+              onClick={() => setClearOpen(false)}
+              disabled={clearing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleClearAll}
+              disabled={clearing}
+              style={{ backgroundColor: "#DC2626", color: "white" }}
+            >
+              {clearing ? <Loader2 size={14} className="animate-spin mr-1" /> : <Trash2 size={14} className="mr-1" />}
+              {clearing ? "Excluindo..." : "Excluir tudo"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

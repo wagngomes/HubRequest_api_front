@@ -7,6 +7,7 @@ import { adminRestricoesRoutes } from './restricoes.js'
 import { adminCentrosRoutes } from './centros.js'
 import { adminConstantesRoutes } from './constantes.js'
 import { adminSettingsRoutes } from './settings.js'
+import { adminAuditRoutes } from './audit.js'
 
 export async function adminRoutes(app: FastifyInstance) {
   await app.register(adminUsersRoutes, { prefix: '/users' })
@@ -17,4 +18,5 @@ export async function adminRoutes(app: FastifyInstance) {
   await app.register(adminCentrosRoutes, { prefix: '/centros' })
   await app.register(adminConstantesRoutes, { prefix: '/constantes' })
   await app.register(adminSettingsRoutes, { prefix: '/settings' })
+  await app.register(adminAuditRoutes, { prefix: '/audit' })
 }

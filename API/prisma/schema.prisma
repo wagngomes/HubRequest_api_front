@@ -70,6 +70,12 @@ enum Acao {
   DESABILITAR
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
 enum Retorno {
   APROVADA
   REPROVADA
@@ -291,4 +297,24 @@ model AppConfig {
   key       String   @id
   value     String   @default("")
   updatedAt DateTime @updatedAt
+}
+
+// ──────────────────────────── Trilha de Auditoria ────────────────────────────
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String
+  userNome  String
+  userEmail String
+  userSetor String
+  action    AuditAction
+  entity    String
+  entityId  String
+  changes   Json?
+  ip        String?
+  createdAt DateTime    @default(now())
+
+  @@index([entity, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

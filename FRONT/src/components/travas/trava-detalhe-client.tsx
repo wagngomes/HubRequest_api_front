@@ -79,11 +79,9 @@ interface Props {
   id: string;
   userEmail: string;
   userRole: string;
-  userSetor: string;
-  userName: string;
 }
 
-export function TravaDetalheClient({ id, userEmail, userRole, userSetor, userName }: Props) {
+export function TravaDetalheClient({ id, userEmail, userRole }: Props) {
   const router  = useRouter();
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -211,7 +209,12 @@ export function TravaDetalheClient({ id, userEmail, userRole, userSetor, userNam
           )}
           {canEdit && (
             <>
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditOpen(true)}>
+              <Button
+                size="sm"
+                className="gap-1"
+                style={{ backgroundColor: "#7C3AED", color: "white" }}
+                onClick={() => setEditOpen(true)}
+              >
                 <Pencil size={13} /> Editar
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
@@ -360,7 +363,7 @@ export function TravaDetalheClient({ id, userEmail, userRole, userSetor, userNam
             Tem certeza que deseja excluir a trava <strong className="font-mono">{trava.trava}</strong>? Esta ação não pode ser desfeita.
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button variant="outline" className="text-gray-700 border-gray-300" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
             <Button onClick={handleDelete} disabled={deleting} style={{ backgroundColor: "#dc2626", color: "white" }}>
               {deleting && <Loader2 size={14} className="animate-spin" />} Excluir
             </Button>

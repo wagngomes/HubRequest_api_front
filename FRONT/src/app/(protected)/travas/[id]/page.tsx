@@ -12,5 +12,5 @@ export const metadata: Metadata = {
 export default async function TravaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const [user, { id }] = await Promise.all([getServerSession(), params]);
   if (!user) redirect("/login");
-  return <TravaDetalheClient id={id} userEmail={user.email} userRole={user.role} userSetor={user.setor} userName={user.nome} />;
+  return <TravaDetalheClient id={id} userEmail={user.email} userRole={user.role} />;
 }

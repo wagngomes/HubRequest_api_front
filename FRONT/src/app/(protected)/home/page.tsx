@@ -199,7 +199,7 @@ export default async function HomePage() {
             </div>
             <Badge className="absolute top-3 right-3 text-xs border-0"
                    style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "white" }}>
-              <Lock size={10} className="mr-1" /> Planejamento
+              <Lock size={10} className="mr-1" /> Travas
             </Badge>
           </div>
 

@@ -1,38 +1,21 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { z } from 'zod'
-import { adminRestricaoSchema } from '../../lib/validations/admin.js'
+import type { AdminRestricaoInput } from '../../lib/validations/admin.js'
 import {
   listRestricoesAdminService,
   createRestricaoService,
   deleteRestricaoService,
 } from '../../services/admin/restricoes.js'
 
-// ---------- Input schemas ----------
-const idParamSchema = z.object({
-  id: z.string().min(1, 'ID obrigatório'),
-})
-
-// ---------- Input types ----------
-export type IdParam = z.infer<typeof idParamSchema>
-
-// ---------- Handlers ----------
 export async function listRestricoes(_request: FastifyRequest, reply: FastifyReply) {
-  const data = await listRestricoesAdminService()
-  return reply.send({ data })
+  return reply.send({ data: await listRestricoesAdminService() })
 }
 
 export async function createRestricao(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = adminRestricaoSchema.safeParse(request.body)
-  if (!parsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: parsed.error.flatten() })
-  }
-  const data = await createRestricaoService(parsed.data)
-  return reply.status(201).send({ data })
+  return reply.status(201).send({ data: await createRestricaoService(request.body as AdminRestricaoInput) })
 }
 
 export async function deleteRestricao(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  await deleteRestricaoService(parsed.data.id)
+  const { id } = request.params as { id: string }
+  await deleteRestricaoService(id)
   return reply.send({ message: 'Restrição excluída com sucesso' })
 }

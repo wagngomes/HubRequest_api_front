@@ -1,9 +1,10 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { z } from 'zod'
-import {
-  solicitacaoLiberacaoSchema,
-  liberacaoRetornoSchema,
-  liberacaoItemStatusSchema,
+import { logAudit, diffObjects } from '../lib/audit.js'
+import { prisma } from '../lib/prisma.js'
+import type {
+  SolicitacaoLiberacaoInput,
+  LiberacaoRetornoInput,
+  LiberacaoItemStatusInput,
 } from '../lib/validations/liberacao.js'
 import {
   listLiberacoesService,
@@ -15,86 +16,105 @@ import {
   updateLiberacaoItemService,
 } from '../services/liberacoes.js'
 
-// ---------- Input schemas ----------
-const listQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
-  search: z.string().default(''),
-  status: z.enum(['PENDENTE', 'PROCESSADA']).optional(),
-})
-
-const idParamSchema = z.object({
-  id: z.string().min(1, 'ID obrigatório'),
-})
-
-const itemIdParamSchema = z.object({
-  itemId: z.string().min(1, 'ID do item obrigatório'),
-})
-
-// ---------- Input types ----------
-export type ListLiberacoesQuery = z.infer<typeof listQuerySchema>
-
-// ---------- Handlers ----------
 export async function listLiberacoes(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = listQuerySchema.safeParse(request.query)
-  if (!parsed.success) {
-    return reply.status(422).send({ error: 'Parâmetros inválidos', details: parsed.error.flatten() })
-  }
-  return reply.send(await listLiberacoesService({ ...parsed.data, caller: request.user }))
+  return reply.send(await listLiberacoesService({
+    ...(request.query as { page: number; limit: number; search: string; status?: 'PENDENTE' | 'PROCESSADA' }),
+    caller: request.user,
+  }))
 }
 
 export async function createLiberacao(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = solicitacaoLiberacaoSchema.safeParse(request.body)
-  if (!parsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: parsed.error.flatten() })
-  }
-  const data = await createLiberacaoService(parsed.data, request.user)
+  const data = await createLiberacaoService(request.body as SolicitacaoLiberacaoInput, request.user)
+
+  logAudit({
+    actor: request.user,
+    action: 'CREATE',
+    entity: 'SolicitacaoLiberacao',
+    entityId: data.id,
+    changes: {
+      contrato:   { from: null, to: data.contrato },
+      acao:       { from: null, to: data.acao },
+      status:     { from: null, to: data.status },
+      totalItens: { from: null, to: data._count.itens },
+    },
+    ip: request.ip,
+  })
+
   return reply.status(201).send({ data })
 }
 
 export async function getLiberacao(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  const data = await getLiberacaoService(parsed.data.id, request.user)
-  return reply.send({ data })
+  const { id } = request.params as { id: string }
+  return reply.send({ data: await getLiberacaoService(id, request.user) })
 }
 
 export async function updateLiberacao(request: FastifyRequest, reply: FastifyReply) {
-  const idParsed = idParamSchema.safeParse(request.params)
-  if (!idParsed.success) return reply.status(422).send({ error: 'ID inválido' })
+  const { id } = request.params as { id: string }
+  const old = await prisma.solicitacaoLiberacao.findUnique({
+    where: { id },
+    select: { status: true, retornoPlanejamento: true, obs: true },
+  })
 
-  const bodyParsed = liberacaoRetornoSchema.safeParse(request.body)
-  if (!bodyParsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: bodyParsed.error.flatten() })
+  const data = await updateLiberacaoService(id, request.body as LiberacaoRetornoInput)
+
+  if (old) {
+    logAudit({
+      actor: request.user,
+      action: 'UPDATE',
+      entity: 'SolicitacaoLiberacao',
+      entityId: data.id,
+      changes: diffObjects(
+        old as Record<string, unknown>,
+        { status: data.status, retornoPlanejamento: data.retornoPlanejamento, obs: data.obs },
+      ),
+      ip: request.ip,
+    })
   }
 
-  const data = await updateLiberacaoService(idParsed.data.id, bodyParsed.data)
   return reply.send({ data })
 }
 
 export async function deleteLiberacao(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  await deleteLiberacaoService(parsed.data.id, request.user)
+  const { id } = request.params as { id: string }
+  await deleteLiberacaoService(id, request.user)
+
+  logAudit({
+    actor: request.user,
+    action: 'DELETE',
+    entity: 'SolicitacaoLiberacao',
+    entityId: id,
+    ip: request.ip,
+  })
+
   return reply.send({ message: 'Excluído com sucesso' })
 }
 
 export async function getLiberacaoItem(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = itemIdParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  const data = await getLiberacaoItemService(parsed.data.itemId, request.user)
-  return reply.send({ data })
+  const { itemId } = request.params as { itemId: string }
+  return reply.send({ data: await getLiberacaoItemService(itemId, request.user) })
 }
 
 export async function updateLiberacaoItem(request: FastifyRequest, reply: FastifyReply) {
-  const idParsed = itemIdParamSchema.safeParse(request.params)
-  if (!idParsed.success) return reply.status(422).send({ error: 'ID inválido' })
+  const { itemId } = request.params as { itemId: string }
+  const old = await prisma.liberacao.findUnique({
+    where: { id: itemId },
+    select: { status: true, codigo: true, solicitacaoId: true },
+  })
 
-  const bodyParsed = liberacaoItemStatusSchema.safeParse(request.body)
-  if (!bodyParsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: bodyParsed.error.flatten() })
-  }
+  const data = await updateLiberacaoItemService(itemId, request.body as LiberacaoItemStatusInput)
 
-  const data = await updateLiberacaoItemService(idParsed.data.itemId, bodyParsed.data)
+  logAudit({
+    actor: request.user,
+    action: 'UPDATE',
+    entity: 'LiberacaoItem',
+    entityId: data.id,
+    changes: {
+      status:        { from: old?.status        ?? null, to: data.status },
+      codigo:        { from: old?.codigo        ?? null, to: data.codigo },
+      solicitacaoId: { from: old?.solicitacaoId ?? null, to: data.solicitacaoId },
+    },
+    ip: request.ip,
+  })
+
   return reply.send({ data })
 }

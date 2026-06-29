@@ -120,6 +120,11 @@ export async function deleteTravaService(id: string) {
   await prisma.trava.delete({ where: { id } })
 }
 
+export async function clearTravasService() {
+  const { count } = await prisma.trava.deleteMany()
+  return { deleted: count }
+}
+
 export async function uploadTravasCsvService(csvText: string) {
   const { data: rows, errors } = Papa.parse<TravaCSVRow>(csvText, {
     header: true,

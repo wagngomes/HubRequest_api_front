@@ -1,5 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { loginSchema, registerSchema } from '../lib/validations/user.js'
+import { jwtVerify } from 'jose'
+import { addToBlacklist } from '../lib/auth/token-blacklist.js'
+import type { LoginInput, RegisterInput } from '../lib/validations/user.js'
 import {
   loginService,
   getMeService,
@@ -9,36 +11,31 @@ import {
   type RegisterResult,
 } from '../services/auth.js'
 
-// ---------- Response types ----------
-export type LoginResponse = LoginResult
-export type MeResponse = { data: MeResult }
+export type LoginResponse    = LoginResult
+export type MeResponse       = { data: MeResult }
 export type RegisterResponse = { data: RegisterResult }
-export type LogoutResponse = { message: string }
+export type LogoutResponse   = { message: string }
 
-// ---------- Handlers ----------
-export async function login(request: FastifyRequest, reply: FastifyReply): Promise<LoginResponse> {
-  const parsed = loginSchema.safeParse(request.body)
-  if (!parsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: parsed.error.flatten() })
+export async function login(request: FastifyRequest, reply: FastifyReply) {
+  return reply.send(await loginService(request.body as LoginInput))
+}
+
+export async function me(request: FastifyRequest, reply: FastifyReply) {
+  return reply.send({ data: await getMeService(request.user.id) })
+}
+
+export async function logout(request: FastifyRequest, reply: FastifyReply): Promise<LogoutResponse> {
+  const token = request.headers.authorization!.slice(7)
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? 'change-me-in-production-min-32-chars')
+    const { payload } = await jwtVerify(token, secret)
+    addToBlacklist(token, (payload.exp ?? 0) * 1000)
+  } catch {
+    // token já inválido — ignora
   }
-  const result = await loginService(parsed.data)
-  return reply.send(result)
-}
-
-export async function me(request: FastifyRequest, reply: FastifyReply): Promise<MeResponse> {
-  const data = await getMeService(request.user.id)
-  return reply.send({ data })
-}
-
-export async function logout(_request: FastifyRequest, reply: FastifyReply): Promise<LogoutResponse> {
   return reply.send({ message: 'Logout realizado' })
 }
 
-export async function register(request: FastifyRequest, reply: FastifyReply): Promise<RegisterResponse> {
-  const parsed = registerSchema.safeParse(request.body)
-  if (!parsed.success) {
-    return reply.status(422).send({ error: 'Dados inválidos', details: parsed.error.flatten() })
-  }
-  const data = await registerService(parsed.data)
-  return reply.status(201).send({ data })
+export async function register(request: FastifyRequest, reply: FastifyReply) {
+  return reply.status(201).send({ data: await registerService(request.body as RegisterInput) })
 }

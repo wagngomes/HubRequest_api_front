@@ -3,6 +3,7 @@ import type { Role, Setor } from '@prisma/client'
 import { verifyLocalToken, verifyOidcToken } from './jwt.js'
 import { mapClaims, type IdPClaims } from './claims-mapper.js'
 import { prisma } from '../prisma.js'
+import { isBlacklisted } from './token-blacklist.js'
 
 export interface RequestUser {
   id: string
@@ -26,6 +27,12 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   }
 
   const token = authHeader.slice(7)
+
+  if (isBlacklisted(token)) {
+    reply.status(401).send({ error: 'Token inválido ou expirado' })
+    return
+  }
+
   const authMode = process.env.AUTH_MODE ?? 'local'
 
   try {

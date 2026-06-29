@@ -1,6 +1,8 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { travaSchema, travaMensagemSchema } from '../lib/validations/admin.js'
+import { validateCsvFile } from '../lib/file-validation.js'
+import { logAudit, diffObjects } from '../lib/audit.js'
 import {
   listTravasService,
   listTravasByAreaService,
@@ -8,6 +10,7 @@ import {
   createTravaService,
   updateTravaService,
   deleteTravaService,
+  clearTravasService,
   uploadTravasCsvService,
 } from '../services/travas.js'
 import {
@@ -15,28 +18,11 @@ import {
   createTravaMensagemService,
 } from '../services/trava-msgs.js'
 
-// ---------- Input schemas ----------
-const listQuerySchema = z.object({
-  page:   z.coerce.number().int().min(1).default(1),
-  limit:  z.coerce.number().int().min(1).max(100).default(20),
-  search: z.string().default(''),
-  area:   z.enum(['COMERCIAL', 'COMPRAS', 'PLANEJAMENTO', 'PRICING', 'FISCAL', 'OUTRAS']).optional(),
-  status: z.enum(['ATIVA', 'INATIVA']).optional(),
-})
+type TravaBody    = z.infer<typeof travaSchema>
+type MensagemBody = z.infer<typeof travaMensagemSchema>
 
-const idParamSchema = z.object({
-  id: z.string().min(1, 'ID obrigatório'),
-})
-
-// ---------- Input types ----------
-export type ListTravasQuery  = z.infer<typeof listQuerySchema>
-export type IdParam          = z.infer<typeof idParamSchema>
-
-// ---------- Handlers ----------
 export async function listTravas(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = listQuerySchema.safeParse(request.query)
-  if (!parsed.success) return reply.status(422).send({ error: 'Parâmetros inválidos', details: parsed.error.flatten() })
-  return reply.send(await listTravasService(parsed.data))
+  return reply.send(await listTravasService(request.query as Parameters<typeof listTravasService>[0]))
 }
 
 export async function listTravasByArea(_request: FastifyRequest, reply: FastifyReply) {
@@ -44,38 +30,82 @@ export async function listTravasByArea(_request: FastifyRequest, reply: FastifyR
 }
 
 export async function getTrava(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  return reply.send({ data: await getTravaService(parsed.data.id) })
+  const { id } = request.params as { id: string }
+  return reply.send({ data: await getTravaService(id) })
 }
 
 export async function createTrava(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = travaSchema.safeParse(request.body)
-  if (!parsed.success) return reply.status(422).send({ error: 'Dados inválidos', details: parsed.error.flatten() })
-  return reply.status(201).send({ data: await createTravaService(parsed.data) })
+  const data = await createTravaService(request.body as TravaBody)
+
+  logAudit({
+    actor: request.user,
+    action: 'CREATE',
+    entity: 'Trava',
+    entityId: data.id,
+    changes: { snapshot: { from: null, to: data } },
+    ip: request.ip,
+  })
+
+  return reply.status(201).send({ data })
 }
 
 export async function updateTrava(request: FastifyRequest, reply: FastifyReply) {
-  const idParsed = idParamSchema.safeParse(request.params)
-  if (!idParsed.success) return reply.status(422).send({ error: 'ID inválido' })
+  const { id } = request.params as { id: string }
+  const oldTrava = await getTravaService(id)
+  const updated  = await updateTravaService(id, request.body as Partial<TravaBody>)
 
-  const bodyParsed = travaSchema.partial().safeParse(request.body)
-  if (!bodyParsed.success) return reply.status(422).send({ error: 'Dados inválidos', details: bodyParsed.error.flatten() })
+  logAudit({
+    actor: request.user,
+    action: 'UPDATE',
+    entity: 'Trava',
+    entityId: updated.id,
+    changes: diffObjects(
+      oldTrava as unknown as Record<string, unknown>,
+      updated  as unknown as Record<string, unknown>,
+    ),
+    ip: request.ip,
+  })
 
-  return reply.send({ data: await updateTravaService(idParsed.data.id, bodyParsed.data) })
+  return reply.send({ data: updated })
 }
 
 export async function deleteTrava(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  await deleteTravaService(parsed.data.id)
+  const { id } = request.params as { id: string }
+  const existing = await getTravaService(id)
+  await deleteTravaService(id)
+
+  logAudit({
+    actor: request.user,
+    action: 'DELETE',
+    entity: 'Trava',
+    entityId: existing.id,
+    changes: { snapshot: { from: existing, to: null } },
+    ip: request.ip,
+  })
+
   return reply.send({ message: 'Trava excluída com sucesso' })
+}
+
+export async function clearTravas(request: FastifyRequest, reply: FastifyReply) {
+  const result = await clearTravasService()
+
+  logAudit({
+    actor: request.user,
+    action: 'DELETE',
+    entity: 'Trava',
+    entityId: 'ALL',
+    changes: { deleted: { from: result.deleted, to: 0 } },
+    ip: request.ip,
+  })
+
+  return reply.send({ message: `${result.deleted} trava(s) excluída(s) com sucesso`, deleted: result.deleted })
 }
 
 export async function uploadTravas(request: FastifyRequest, reply: FastifyReply) {
   const file = await request.file()
   if (!file) return reply.status(400).send({ error: 'Arquivo não enviado' })
-  if (!file.filename.endsWith('.csv')) return reply.status(400).send({ error: 'Formato inválido. Envie um .csv' })
+  const fileError = validateCsvFile(file.filename, file.mimetype)
+  if (fileError) return reply.status(400).send({ error: fileError })
 
   const chunks: Buffer[] = []
   for await (const chunk of file.file) chunks.push(chunk)
@@ -84,21 +114,27 @@ export async function uploadTravas(request: FastifyRequest, reply: FastifyReply)
   return reply.send(await uploadTravasCsvService(text))
 }
 
-// ---------- Mensagens ----------
 export async function listMensagens(request: FastifyRequest, reply: FastifyReply) {
-  const parsed = idParamSchema.safeParse(request.params)
-  if (!parsed.success) return reply.status(422).send({ error: 'ID inválido' })
-  return reply.send({ data: await listTravaMensagensService(parsed.data.id) })
+  const { id } = request.params as { id: string }
+  return reply.send({ data: await listTravaMensagensService(id) })
 }
 
 export async function createMensagem(request: FastifyRequest, reply: FastifyReply) {
-  const idParsed = idParamSchema.safeParse(request.params)
-  if (!idParsed.success) return reply.status(422).send({ error: 'ID inválido' })
+  const { id } = request.params as { id: string }
+  const body = request.body as MensagemBody
+  const msg = await createTravaMensagemService(id, body, request.user)
 
-  const bodyParsed = travaMensagemSchema.safeParse(request.body)
-  if (!bodyParsed.success) return reply.status(422).send({ error: 'Dados inválidos', details: bodyParsed.error.flatten() })
-
-  return reply.status(201).send({
-    data: await createTravaMensagemService(idParsed.data.id, bodyParsed.data, request.user),
+  logAudit({
+    actor: request.user,
+    action: 'CREATE',
+    entity: 'TravaMensagem',
+    entityId: msg.id,
+    changes: {
+      travaId: { from: null, to: id },
+      texto:   { from: null, to: body.texto },
+    },
+    ip: request.ip,
   })
+
+  return reply.status(201).send({ data: msg })
 }

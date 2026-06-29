@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Package, MapPin, Bell, Clock, Settings2, Building2, ShieldX, Activity } from "lucide-react";
+import { Users, Package, MapPin, Bell, Clock, Settings2, Building2, ShieldX, ClipboardList } from "lucide-react";
 import { UsersSection } from "./users-section";
 import { ProductsSection } from "./products-section";
 import { CentrosSection } from "./centros-section";
@@ -23,7 +23,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "restricoes",    label: "Restrições Transf.",      icon: ShieldX   },
   { id: "constantes",    label: "Constantes",              icon: Settings2 },
   { id: "notificacoes",  label: "Notificações",            icon: Bell      },
-  { id: "monitoramento", label: "Monitoramento",           icon: Activity  },
+  { id: "monitoramento", label: "Trilha de Auditoria",      icon: ClipboardList },
 ];
 
 export function AdminClient({ isAdmin = false }: { isAdmin?: boolean }) {

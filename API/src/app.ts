@@ -2,7 +2,9 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
-import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod'
+import swagger from '@fastify/swagger'
+import scalar from '@scalar/fastify-api-reference'
+import { serializerCompiler, validatorCompiler, jsonSchemaTransform, ZodTypeProvider } from 'fastify-type-provider-zod'
 import { registerRoutes } from './routes/index.js'
 
 type TransportTarget = {
@@ -69,14 +71,71 @@ export async function buildApp() {
     credentials: true,
   })
 
-  await app.register(helmet)
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc:     ["'self'"],
+        scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc:       ["'self'", "'unsafe-inline'"],
+        imgSrc:         ["'self'", 'data:', 'https:'],
+        connectSrc:     ["'self'"],
+        fontSrc:        ["'self'", 'data:'],
+        workerSrc:      ["'self'", 'blob:'],
+      },
+    },
+  })
 
   await app.register(rateLimit, {
     max: 200,
     timeWindow: '1 minute',
   })
 
+  await app.register(swagger, {
+    transform: jsonSchemaTransform,
+    openapi: {
+      openapi: '3.1.0',
+      info: {
+        title: 'Hub Request Plan API',
+        description: 'API de gestão de transferências, liberações, travas e usuários',
+        version: '0.1.0',
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'Token JWT obtido via POST /auth/login',
+          },
+        },
+      },
+      tags: [
+        { name: 'Auth',           description: 'Autenticação e sessão' },
+        { name: 'Travas',         description: 'Travas e regras de planejamento' },
+        { name: 'Transferências', description: 'Solicitações de transferência entre CDs' },
+        { name: 'Liberações',     description: 'Solicitações de liberação Pitágoras' },
+        { name: 'Admin',          description: 'Administração do sistema (requer role ADMIN)' },
+        { name: 'Dados Mestres',  description: 'Produtos, centros, SLAs e restrições' },
+        { name: 'Dashboard',      description: 'Métricas e resumos' },
+      ],
+    },
+  })
+
   await registerRoutes(app)
+
+  // Expõe o spec OpenAPI gerado pelo @fastify/swagger (v8 não registra rota automática)
+  app.get('/documentation/json', { schema: { hide: true } }, async (_req, reply) => {
+    return reply.send((app as unknown as { swagger: () => object }).swagger())
+  })
+
+  // Scalar UI — registrado após as rotas para o spec estar completo
+  await app.register(scalar, {
+    routePrefix: '/docs',
+    configuration: {
+      spec: { url: '/documentation/json' },
+      theme: 'purple',
+    },
+  })
 
   app.setErrorHandler((error, _request, reply) => {
     if (error.name === 'HttpError') {
