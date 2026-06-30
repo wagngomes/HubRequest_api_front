@@ -1,0 +1,38 @@
+# Artefatos de build
+node_modules
+.next
+.turbo
+
+# Controle de versão
+.git
+.gitignore
+*.log
+
+# Variáveis de ambiente — NUNCA incluir na imagem
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Documentação
+README.md
+*.md
+
+# Testes
+**/*.test.ts
+**/*.spec.ts
+coverage/
+playwright-report/
+test-results/
+playwright.config.ts
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

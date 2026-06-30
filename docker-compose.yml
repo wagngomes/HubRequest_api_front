@@ -9,9 +9,12 @@ services:
       - ./API/.env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      # node:20-slim não tem wget/curl — usa fetch nativo do Node 20
+      test: ["CMD", "node", "-e",
+        "fetch('http://localhost:3001/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
+      start_period: 40s
       retries: 3
 
   front:
@@ -19,7 +22,7 @@ services:
       context: ./FRONT
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
@@ -29,6 +32,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      # Alpine tem wget via busybox; /api/health é uma rota Next.js dedicada (sem auth)
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
 
   # ── PostgreSQL local (alternativa ao Supabase) ──────────────────────────────
   # Descomente este bloco e ajuste DATABASE_URL para:

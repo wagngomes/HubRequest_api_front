@@ -1,0 +1,40 @@
+# Artefatos de build
+node_modules
+dist
+
+# Controle de versão
+.git
+.gitignore
+*.log
+
+# Variáveis de ambiente — NUNCA incluir na imagem
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Documentação
+README.md
+*.md
+*.png
+image*.png
+
+# Testes
+**/*.test.ts
+**/*.spec.ts
+coverage/
+vitest.config.ts
+
+# Scripts de desenvolvimento
+scripts/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
